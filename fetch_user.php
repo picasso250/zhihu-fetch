@@ -1,17 +1,19 @@
 <?php
 
-require dirname(dirname(__DIR__))."/vendor/autoload.php";
-require dirname(__DIR__)."/odie.php";
-require dirname(__DIR__)."/logic.php";
-require (__DIR__)."/lib_mongodb.php";
-require (__DIR__)."/autoload.php";
+defined('DEPLOY_MODE') or define('DEPLOY_MODE', 'DEV');
+
+require_once ((__DIR__))."/vendor/autoload.php";
+require_once __DIR__."/odie.php";
+require_once __DIR__."/logic.php";
+require_once __DIR__."/lib_mongodb.php";
+require_once __DIR__."/autoload.php";
 
 use model\User;
 use model\Question;
 use model\Answer;
 
-DB::setAdapter(new adapter\Mysql()));
-DB::setAdapter(new adapter\Mongo()));
+DB::setAdapter(new adapter\Mysql());
+// DB::setAdapter(new adapter\Mongo());
 
 $base_url = 'http://www.zhihu.com';
 

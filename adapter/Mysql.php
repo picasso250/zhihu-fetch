@@ -7,10 +7,24 @@ use Exception;
 
 class Mysql
 {
+    private $limit;
+    private $where;
+    private $table;
+    private $fields;
+
     public function __construct()
     {
-        $config = require dirname(dirname(dirname(__DIR__))).'/config/'.DEPLOY_MODE.'.php';
+        $config = require ((dirname(__DIR__))).'/config/'.DEPLOY_MODE.'.php';
         $this->pdo = new Pdo($config['db']['dsn'], $config['db']['user'], $config['db']['password'], array(PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES utf8'));
+        $this->reset();
+    }
+
+    private function reset()
+    {
+        $this->limit = 1000;
+        $this->where = [];
+        $this->table = '';
+        $this->fields = [];
     }
 
     public function execute($sql, $values = [])
@@ -77,6 +91,7 @@ class Mysql
         $whereStr = implode(' AND ', self::keyEqualArray($this->where));
         $sql = "SELECT $fields FROM `$this->table` WHERE $whereStr limit $this->limit";
         $stmt = $this->execute($sql, $this->where);
+        $this->reset();
         return $stmt->fetchAll(Pdo::FETCH_ASSOC);
     }
 
@@ -85,6 +100,7 @@ class Mysql
         $whereStr = implode(' AND ', self::keyEqualArray($this->where));
         $sql = "SELECT COUNT(*) FROM `$this->table` WHERE $whereStr limit 1";
         $stmt = $this->execute($sql, $this->where);
+        $this->reset();
         return $stmt->fetchColumn();
     }
 
