@@ -1,12 +1,10 @@
 <?php
 
-echo DEPLOY_MODE;
+define('DEPLOY_MODE', isset($argv[1]) ? $argv[1] : 'DEV');
 
-defined('DEPLOY_MODE') or define('DEPLOY_MODE', 'DEV');
-
-echo '<br>';
 echo DEPLOY_MODE;
 exit;
+
 require_once ((__DIR__))."/vendor/autoload.php";
 require_once (__DIR__)."/odie.php";
 require_once (__DIR__)."/logic.php";
