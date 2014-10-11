@@ -59,7 +59,6 @@ class Mysql
         $result = ['ok' => true];
         $whereStr = implode(',', self::keyEqualArray($where));
         $sql = "SELECT id FROM `$table` WHERE $whereStr LIMIT 1";
-        slog("$sql %s", implode(',', $where));
         $stmt = $this->execute($sql, $where);
         $id = $stmt->fetchColumn();
         $result['updatedExisting'] = !!$id;
