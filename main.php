@@ -23,3 +23,4 @@ include 'fetch_user.php';
 include 'fetch_answer.php';
 include 'fetch_user.php';
 include 'fetch_answer.php';
+include 'fetch_user.php';
