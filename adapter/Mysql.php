@@ -14,7 +14,7 @@ class Mysql
 
     public function __construct()
     {
-        $config = require ((dirname(__DIR__))).'/config/'.DEPLOY_MODE.'.php';
+        $config = require ((dirname(__DIR__))).'/config/'.strtolower(DEPLOY_MODE).'.php';
         $this->pdo = new Pdo($config['db']['dsn'], $config['db']['user'], $config['db']['password'], array(PDO::MYSQL_ATTR_INIT_COMMAND => 'SET NAMES utf8'));
         $this->reset();
     }
