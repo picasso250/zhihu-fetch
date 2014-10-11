@@ -1,6 +1,7 @@
 <?php
 
 define('DEPLOY_MODE', isset($argv[1]) ? $argv[1] : 'DEV');
+unset($argv[1]);
 
 require_once ((__DIR__))."/vendor/autoload.php";
 require_once (__DIR__)."/odie.php";
