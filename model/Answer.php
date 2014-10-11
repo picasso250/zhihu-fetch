@@ -27,15 +27,15 @@ class Answer extends Base
             $t = microtime(true);
             list($code, $content) = odie_get($url);
             echo "\t[$code]";
+            $t = intval((microtime(true) - $t) * 1000);
+            slog("$url [$code] $t ms");
             if ($code != 200) { // fail fast
                 echo "\tfail\n";
-                slog("$url [$code] error");
                 $success_ratio = get_average(0, 'success_ratio');
                 continue;
             } else {
                 $success_ratio = get_average(1, 'success_ratio');
             }
-            $t = intval((microtime(true) - $t) * 1000);
             $avg = intval(get_average($t));
             echo "\t$t ms\n";
             if (empty($content)) {
@@ -44,7 +44,6 @@ class Answer extends Base
                 return false;
             }
             list($question, $descript, $content, $vote) = parse_answer_pure($content);
-            slog("$url [$code] ^$vote\t$question");
 
             Question::saveQuestion($qid, $question, $descript);
 

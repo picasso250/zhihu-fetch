@@ -32,6 +32,7 @@ class Mysql
         $stmt = $this->pdo->prepare($sql);
         if (!$stmt->execute($values)) {
             print_r($stmt->errorInfo());
+            slog(implode(',', $stmt->errorInfo()));
             throw new Exception("db error", 1);
         }
         return $stmt;
@@ -58,6 +59,7 @@ class Mysql
         $result = ['ok' => true];
         $whereStr = implode(',', self::keyEqualArray($where));
         $sql = "SELECT id FROM `$table` WHERE $whereStr LIMIT 1";
+        slog("$sql %s", implode(',', $where));
         $stmt = $this->execute($sql, $where);
         $id = $stmt->fetchColumn();
         $result['updatedExisting'] = !!$id;

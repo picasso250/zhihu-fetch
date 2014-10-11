@@ -42,6 +42,7 @@ while (true) {
         $t = timer();
         $avg = intval(get_average($t, 'user page'));
         echo "[$code]\t$t ms\tAvg: $avg ms\n";
+        slog("%s [%s] %s ms", $url, $code, $t);
         if ($code == 404) {
             slog("user $username fetch fail, code $code");
             User::updateByUserName($username, array('fetch' => User::FETCH_FAIL));
@@ -77,7 +78,7 @@ while (true) {
                 list($code, $content) = uget($url_page);
                 $t = timer();
                 $avg = intval(get_average($t, 'user page'));
-                slog("$url_page [$code]");
+                slog("%s [%s] %s ms", $url_page, $code, $t);
                 echo "[$code]\t$t ms\tAvg: $avg ms\n";
                 if ($code != 200) {
                     echo "奇奇怪怪的返回码 $code\n";

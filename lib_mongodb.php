@@ -37,6 +37,7 @@ function get_table($table)
 function slog($msg)
 {
     $f = __DIR__.'/'.date('Ymd').'.log';
+    $msg = call_user_func_array('sprintf', func_get_args());
     return error_log(date('Y-m-d H:i:s')." $msg\n", 3, $f);
 }
 
