@@ -2,9 +2,6 @@
 
 define('DEPLOY_MODE', isset($argv[1]) ? $argv[1] : 'DEV');
 
-echo DEPLOY_MODE;
-exit;
-
 require_once ((__DIR__))."/vendor/autoload.php";
 require_once (__DIR__)."/odie.php";
 require_once (__DIR__)."/logic.php";
