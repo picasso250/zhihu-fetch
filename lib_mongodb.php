@@ -36,9 +36,10 @@ function get_table($table)
 
 function slog($msg)
 {
-    $f = __DIR__.'/'.date('Ymd').'.log';
+    $dir = defined('DEPLOY_MODE') && DEPLOY_MODE === 'PRD' ? '/home/bae/log' : __DIR__;
+    $file = $dir.'/app.log';
     $msg = call_user_func_array('sprintf', func_get_args());
-    return error_log(date('Y-m-d H:i:s')." $msg\n", 3, $f);
+    return error_log(date('Y-m-d H:i:s')." $msg\n", 3, $file);
 }
 
 function uget($url, $opts = null)
