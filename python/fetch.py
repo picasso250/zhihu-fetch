@@ -3,25 +3,13 @@ import errno
 import sys
 import time
 import re
+import logging
 import zhihu
 import dbhelper
 import timer
+import coroutine
 
-def sender(f):
-    def wrapper(*args, **kw):
-        c = f(*args, **kw)
-        next(c)
-        return c
-    return wrapper
-pool = []
-def executor(f):
-    def wrapper(*args, **kw):
-        c = f(*args, **kw)
-        next(c)
-        pool.append(c)
-        return c
-    return wrapper
-@sender
+@coroutine.sender
 def http(filename):
     def parse_header(raw_header):
         header_lines = raw_header.split("\r\n")
@@ -73,8 +61,8 @@ def http(filename):
                 elif 'Transfer-Encoding' in headers:
                     TE = headers['Transfer-Encoding']
                     assert TE == 'chunked'
-                    print('left',left)
                     while True:
+                        print('left',left)
                         pos = left.find(b"\r\n")
                         assert pos != -1
                         length = int(left[0:pos].decode(), 16)
@@ -89,7 +77,7 @@ def http(filename):
                                 append(b)
                                 yield code, headers, ba
                             if length - len(b) <= 0:
-                                print('will less than 0', length, b)
+                                # print('will less than 0', length, b)
                                 tial = b[:length]
                                 append(left)
                                 left = b[length+len(b"\r\n"):]
@@ -98,7 +86,7 @@ def http(filename):
                                 append(b)
                                 length -= len(b)
 
-@executor
+@coroutine.executor
 def fetch_page(host, url, filename, after_fetch):
     def request(host, url, s):
         headers = [
@@ -115,7 +103,7 @@ def fetch_page(host, url, filename, after_fetch):
     connection = s.connect((host, port))
     s.setblocking(False)
     request(host, url, s)
-    handler = http(host+str(time.time())+'.html')
+    handler = http(url.replace('/','-').replace('?','-').replace('=','-')+'.html')
     chunk_size = 1024
     while True:
         try:
@@ -127,7 +115,6 @@ def fetch_page(host, url, filename, after_fetch):
         except socket.error as e:
             err = e.args[0]
             if err == errno.EAGAIN or err == errno.EWOULDBLOCK:
-                print('EAGAIN')
                 yield True
                 continue
             else:
@@ -150,20 +137,6 @@ def make_after_fetch():
     def after_fetch(code, headers, content):
         pass
     return after_fetch
-
-def cycle():
-    if len(pool) > 0:
-        will_delete = None
-        for i in pool:
-            if not next(i):
-                will_delete = i
-                break
-        if will_delete is not None:
-            pool.remove(will_delete)
-            cycle()
-def loop():
-    while len(pool) > 0:
-        cycle()
 
 def fetch_zhihu_page(url, after_fetch):
     fetch_page('www.zhihu.com', url, 'zhihu.html', after_fetch)
@@ -190,6 +163,7 @@ def saveAnswer(username, answer_link_list):
                 zhihu.slog("content is empty\n")
                 zhihu.slog("url [code] empty")
                 return False
+            print('will parse',url)
             question, descript, content, vote = zhihu.parse_answer_pure(content)
             zhihu.slog("{}\t^{}\t{}".format(url, vote, question))
 
@@ -240,4 +214,4 @@ def people_page(username, page = 1):
 if __name__ == '__main__':
     fetch_page('www.baidu.com', '/', 'baidu.html', make_after_fetch())
     fetch_page('www.zhihu.com', '/', 'zhihu.html', make_after_fetch())
-    loop()
+    coroutine.loop()

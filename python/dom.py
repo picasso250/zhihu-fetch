@@ -147,6 +147,8 @@ class DomParser(HTMLParser):
             self.tb.end('text')
 
 def html2dom(content):
+    with open('last.html', 'w') as f:
+        f.write(content)
     parser = DomParser()
     parser.init()
     parser.feed(content)
