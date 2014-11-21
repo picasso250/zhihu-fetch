@@ -1,87 +1,20 @@
 import socket
 import errno
+import sys
+import zhihu
 
-class Coroutine(object):
-    """docstring for Coroutine"""
-    def __init__(self):
-        super(Coroutine, self).__init__()
-        self.queue = []
-        self.chunk_size = 1024
-        self.done = []
-        
-    def from_del(self, will_delete):
-        for w in will_delete:
-            self.queue.remove(w)
-    def append(self, host, url, callback):
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        if s is None:
-            print("Could not create socket\n"); # 创建一个Socket
-        port = 80
-        print('connect', host, port)
-        connection = s.connect((host, port))
-        s.setblocking(False)
-        print('id', len(self.queue))
-        key = len(self.queue) # key, 4
-        self.queue.append((host, url, callback, s, key)) # {'host': info[0], 'url': info[1], 'callback': info[2]}
-        self.request(host, url, s)
-    def request(self, host, url, s):
-        headers = [
-            "GET {} HTTP/1.1".format(url),
-            "Host: {}".format(host),
-            "Accept-Encoding: identity"
-        ]
-        print('send', headers)
-        headers_str = "\r\n".join(headers)+"\r\n\r\n"
-        s.sendall(headers_str.encode())
-    def do_cycle(self):
-        # print('do_cycle', len(self.queue))
-        will_delete = None
-        for host, url, callback, s, key in self.queue:
-            try:
-                b = s.recv(self.chunk_size)
-            except socket.timeout as e:
-                print('socket.timeout')
-                continue
-            except socket.error as e:
-                err = e.args[0]
-                if err == errno.EAGAIN or err == errno.EWOULDBLOCK:
-                    continue
-                else:
-                    # a "real" error occurred
-                    print(e)
-                    raise e
-            if len(b) == 0:
-                print('server close, delete', key)
-                s.close()
-                callback.close()
-                will_delete = (host, url, callback, s, key)
-                break
-            go = callback.send(b)
-            assert go is not None
-            if not go:
-                print(host,url,'content end, delete', key)
-                s.close()
-                callback.close()
-                self.done.append((host, url))
-                will_delete = (host, url, callback, s, key)
-                break
-        if will_delete is not None:
-            self.queue.remove(will_delete)
-            self.do_cycle()
-    def send(self, host, url, callback):
-        print('work on', host, url)
-        self.append(host, url, callback)
-        self.do_cycle()
-    def close(self):
-        print('clean up')
-        while len(self.queue) > 0:
-            self.do_cycle()
-        print('end')
-        
 def sender(f):
     def wrapper(*args, **kw):
         c = f(*args, **kw)
         next(c)
+        return c
+    return wrapper
+pool = []
+def executor(f):
+    def wrapper(*args, **kw):
+        c = f(*args, **kw)
+        next(c)
+        pool.append(c)
         return c
     return wrapper
 @sender
@@ -132,7 +65,7 @@ def http(filename):
                         length -= len(b)
                         if length <= 0:
                             assert length == 0
-                            yield ba
+                            yield code, headers, ba
                 elif 'Transfer-Encoding' in headers:
                     TE = headers['Transfer-Encoding']
                     assert TE == 'chunked'
@@ -153,7 +86,7 @@ def http(filename):
                             l = f.write(b)
                             assert l == len(b)
                             ba.extend(b)
-                            yield ba
+                            yield code, headers, ba
                         l = f.write(b)
                         assert l == len(b)
                         ba.extend(b)
@@ -162,7 +95,7 @@ def http(filename):
                             print('length less than 0', length, b)
                             print('should start of digits',b[-length:])
 
-@sender
+@executor
 def fetch_page(host, url, filename, after_fetch):
     def request(host, url, s):
         headers = [
@@ -203,19 +136,20 @@ def fetch_page(host, url, filename, after_fetch):
             print('server close, delete')
             s.close()
             yield False
-        ba = handler.send(b)
-        assert ba is not None
-        if not isinstance(ba, bool):
-            after_fetch(ba)
+        info = handler.send(b)
+        assert info is not None
+        if not isinstance(info, bool):
+            code, headers, ba = info
+            after_fetch(code, headers, ba.decode())
             yield False
 
 def make_after_fetch():
-    def after_fetch(ba):
+    def after_fetch(code, headers, content):
         pass
     return after_fetch
 
-pool = []
 def cycle():
+    print('cycle',pool)
     if len(pool) > 0:
         will_delete = None
         for i in pool:
@@ -228,39 +162,82 @@ def cycle():
 def loop():
     while len(pool) > 0:
         cycle()
-if __name__ == '__main__':
-    a = fetch_page('www.baidu.com', '/', 'baidu.html', make_after_fetch())
-    b = fetch_page('www.zhihu.com', '/', 'zhihu.html', make_after_fetch())
-    pool = [a,b]
-    loop()
 
 def fetch_zhihu_page(url, after_fetch):
-    pool.append(fetch_page('www.zhihu.com', url, 'zhihu.html', after_fetch))
-def fetch_people_page(conn, username, page = 1):
+    fetch_page('www.zhihu.com', url, 'zhihu.html', after_fetch)
+def saveAnswer(conn, username, answer_link_list, dblock):
+    regex = re.compile(r'^/question/(\d+)/answer/(\d+)')
+
+    success_ratio = None
+    avg = None
+    for url in answer_link_list:
+        matches = regex.search(url)
+        if matches is None:
+            raise Exception('url not good')
+        qid = matches.group(1)
+        aid = matches.group(2)
+        zhihu.slog("\t{}".format(url))
+        sys.stdout.flush()
+        timer.timer('saveAnswer')
+        def after_fetch(code, headers, content):
+            if content is None:
+                return
+            success_ratio = get_average(0 if content is None else 1, 'success_ratio')
+            t = timer.timer('saveAnswer')
+            avg = int(get_average(t))
+            zhihu.slog("\t{} ms".format(t))
+            if len(content) == 0:
+                zhihu.slog("content is empty\n")
+                zhihu.slog("url [code] empty")
+                return False
+            question, descript, content, vote = zhihu.parse_answer_pure(content)
+            zhihu.slog("{}\t^{}\t{}".format(url, vote, question))
+
+            dbhelper.saveQuestion(qid, question, descript)
+            dbhelper._saveAnswer(aid, qid, username, content, vote)
+        fetch_zhihu_page(url, after_fetch)
+
+def people_page(username, page = 1):
     url = "/people/{}/answers".format(username)
     url_page = "{}?page={:d}".format(url, page)
     print("\n{}\t".format(url_page), end='')
     sys.stdout.flush()
-    timer.timer()
-    try:
-        conn.request("GET", url_page)
-    except socket.timeout as e:
-        print('wow! timeout')
-        raise e
-    response = conn.getresponse()
-    t = timer.timer()
-    avg = int(get_average(t, 'user page'))
-    code = response.status
-    print("[{}]\t{} ms\tAvg: {} ms".format(code, t, avg))
-    if code == 404:
-        slog("user username fetch fail, code code")
-        dbhelper.update_user_by_name(username, {'fetch': dbhelper.FETCH_FAIL})
-        print( "没有这个用户", username)
-        return None
-    if code != 200:
-        slog("user username fetch fail, code code")
-        dbhelper.update_user_by_name(username, {'fetch': dbhelper.FETCH_FAIL})
-        print( "奇奇怪怪的返回码", code)
-        return None
-    content = response.read()
-    return content
+    def after_fetch(code, headers, content):
+        print("[{}]".format(code))
+        if code == 404:
+            slog("user username fetch fail, code code")
+            dbhelper.update_user_by_name(username, {'fetch': dbhelper.FETCH_FAIL})
+            print("没有这个用户", username)
+            return None
+        if code != 200:
+            slog("user username fetch fail, code code")
+            dbhelper.update_user_by_name(username, {'fetch': dbhelper.FETCH_FAIL})
+            print("奇奇怪怪的返回码", code)
+            return None
+        if content is None:
+            print('content is None')
+            return
+        
+        src = zhihu.get_avatar_src(content)
+        dbhelper.update_user_by_name(username, {'avatar': src})
+
+        link_list = zhihu.get_answer_link_list(content)
+        rs = saveAnswer(username, link_list, dblock)
+
+        num = zhihu.get_page_num(content)
+        if num > 1:
+            for i in range(2, num):
+                content = zhihu.fetch_people_page(username, i)
+                if content is None:
+                    print('content is None on line 34')
+                    continue
+                link_list = zhihu.get_answer_link_list(content)
+                zhihu.saveAnswer(username, link_list, dblock)
+        dbhelper.update_user_by_name(username, {'fetch': dbhelper.FETCH_OK})
+        zhihu.slog('### after saveAnswer ###')
+    fetch_zhihu_page(url_page, after_fetch)
+
+if __name__ == '__main__':
+    fetch_page('www.baidu.com', '/', 'baidu.html', make_after_fetch())
+    fetch_page('www.zhihu.com', '/', 'zhihu.html', make_after_fetch())
+    loop()
