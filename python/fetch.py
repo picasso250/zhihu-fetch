@@ -1,7 +1,11 @@
 import socket
 import errno
 import sys
+import time
+import re
 import zhihu
+import dbhelper
+import timer
 
 def sender(f):
     def wrapper(*args, **kw):
@@ -32,6 +36,10 @@ def http(filename):
         return code, headers
     ba = bytearray()
     with open(filename, 'wb') as f:
+        def append(b):
+            l = f.write(b)
+            assert l == len(b)
+            ba.extend(b)
         raw = bytearray()
         i = 0
         while True:
@@ -51,17 +59,13 @@ def http(filename):
                 left = raw[pos+len(b"\r\n\r\n"):]
                 # print('left', left)
                 if 'Content-Length' in headers:
-                    l = f.write(left)
-                    assert l == len(left)
-                    ba.extend(left)
+                    append(left)
                     CL = int(headers['Content-Length'])
                     print('Content-Length',CL)
                     length = CL - len(left)
                     while True:
                         b = yield True
-                        l = f.write(b)
-                        assert l == len(b)
-                        ba.extend(b)
+                        append(b)
                         length -= len(b)
                         if length <= 0:
                             assert length == 0
@@ -70,30 +74,29 @@ def http(filename):
                     TE = headers['Transfer-Encoding']
                     assert TE == 'chunked'
                     print('left',left)
-                    pos = left.find(b"\r\n")
-                    assert pos != -1
-                    length = int(left[0:pos].decode(), 16)
-                    left_bytes = left[pos+len(b"\r\n"):]
-                    l = f.write(left_bytes)
-                    assert l == len(left_bytes)
-                    ba.extend(left_bytes)
-                    length -= len(left_bytes)
                     while True:
-                        b = yield True
-                        # print('chunked',b)
-                        if b.find(b"\r\n0\r\n\r\n") != -1:
-                            b = b[0:len(b)-len(b"\r\n0\r\n\r\n")]
-                            l = f.write(b)
-                            assert l == len(b)
-                            ba.extend(b)
-                            yield code, headers, ba
-                        l = f.write(b)
-                        assert l == len(b)
-                        ba.extend(b)
-                        length -= len(b)
-                        if length <= 0:
-                            print('length less than 0', length, b)
-                            print('should start of digits',b[-length:])
+                        pos = left.find(b"\r\n")
+                        assert pos != -1
+                        length = int(left[0:pos].decode(), 16)
+                        left_bytes = left[pos+len(b"\r\n"):]
+                        append(left_bytes)
+                        length -= len(left_bytes)
+                        while True:
+                            b = yield True
+                            # print('chunked',b)
+                            if b.find(b"\r\n0\r\n\r\n") != -1:
+                                b = b[0:len(b)-len(b"\r\n0\r\n\r\n")]
+                                append(b)
+                                yield code, headers, ba
+                            if length - len(b) <= 0:
+                                print('will less than 0', length, b)
+                                tial = b[:length]
+                                append(left)
+                                left = b[length+len(b"\r\n"):]
+                                break
+                            else:
+                                append(b)
+                                length -= len(b)
 
 @executor
 def fetch_page(host, url, filename, after_fetch):
@@ -112,7 +115,7 @@ def fetch_page(host, url, filename, after_fetch):
     connection = s.connect((host, port))
     s.setblocking(False)
     request(host, url, s)
-    handler = http(host+'.html')
+    handler = http(host+str(time.time())+'.html')
     chunk_size = 1024
     while True:
         try:
@@ -140,7 +143,7 @@ def fetch_page(host, url, filename, after_fetch):
         assert info is not None
         if not isinstance(info, bool):
             code, headers, ba = info
-            after_fetch(code, headers, ba.decode())
+            after_fetch(*info)
             yield False
 
 def make_after_fetch():
@@ -149,7 +152,6 @@ def make_after_fetch():
     return after_fetch
 
 def cycle():
-    print('cycle',pool)
     if len(pool) > 0:
         will_delete = None
         for i in pool:
@@ -165,7 +167,7 @@ def loop():
 
 def fetch_zhihu_page(url, after_fetch):
     fetch_page('www.zhihu.com', url, 'zhihu.html', after_fetch)
-def saveAnswer(conn, username, answer_link_list, dblock):
+def saveAnswer(username, answer_link_list):
     regex = re.compile(r'^/question/(\d+)/answer/(\d+)')
 
     success_ratio = None
@@ -182,9 +184,7 @@ def saveAnswer(conn, username, answer_link_list, dblock):
         def after_fetch(code, headers, content):
             if content is None:
                 return
-            success_ratio = get_average(0 if content is None else 1, 'success_ratio')
             t = timer.timer('saveAnswer')
-            avg = int(get_average(t))
             zhihu.slog("\t{} ms".format(t))
             if len(content) == 0:
                 zhihu.slog("content is empty\n")
@@ -222,17 +222,17 @@ def people_page(username, page = 1):
         dbhelper.update_user_by_name(username, {'avatar': src})
 
         link_list = zhihu.get_answer_link_list(content)
-        rs = saveAnswer(username, link_list, dblock)
+        rs = saveAnswer(username, link_list)
 
         num = zhihu.get_page_num(content)
         if num > 1:
             for i in range(2, num):
-                content = zhihu.fetch_people_page(username, i)
+                content = people_page(username, i)
                 if content is None:
                     print('content is None on line 34')
                     continue
                 link_list = zhihu.get_answer_link_list(content)
-                zhihu.saveAnswer(username, link_list, dblock)
+                zhihu.saveAnswer(username, link_list)
         dbhelper.update_user_by_name(username, {'fetch': dbhelper.FETCH_OK})
         zhihu.slog('### after saveAnswer ###')
     fetch_zhihu_page(url_page, after_fetch)

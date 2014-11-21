@@ -57,9 +57,9 @@ def get_answer_link_list(content):
 
 def parse_answer_pure(content):
     with open('last.html', 'w') as f:
-        f.write(content.decode())
+        f.write(content.decode('utf-8', 'ignore'))
 
-    doc = dom.html2dom(content.decode())
+    doc = dom.html2dom(content.decode('utf-8', 'ignore'))
     answerdom = doc.get_element_by_id('zh-question-answer-wrap')
     if len(answerdom) == 0:
         slog('warinng: no #zh-question-answer-wrap')

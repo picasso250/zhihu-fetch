@@ -142,7 +142,7 @@ class DomParser(HTMLParser):
             self.tb.end(self.tag)
             self.state = self.STATE_CLOSE
         if self.state is not None and len(data.strip()) > 0:
-            self.tb.start('text')
+            self.tb.start('text', {})
             self.tb.data(data)
             self.tb.end('text')
 
