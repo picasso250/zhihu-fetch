@@ -6,14 +6,11 @@ import zhihu
 import dbhelper
 import timer
 
-MAX_THREAD_NUM = 4
-
 count = dbhelper.getNotFetchedUserCount()
 print("there are", count, "user to fetch")
 
 def fetch_user(username):
     dbhelper.update_user_by_name(username, {'fetch': dbhelper.FETCH_ING})
-    conn = zhihu.get_conn()
     content = zhihu.fetch_people_page(conn, username)
     if content is None:
         print('content is None')

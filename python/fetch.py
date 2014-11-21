@@ -35,7 +35,7 @@ class Coroutine(object):
         s.sendall(headers_str.encode())
     def do_cycle(self):
         # print('do_cycle', len(self.queue))
-        will_delete = []
+        will_delete = None
         for host, url, callback, s, key in self.queue:
             try:
                 b = s.recv(self.chunk_size)
@@ -54,8 +54,8 @@ class Coroutine(object):
                 print('server close, delete', key)
                 s.close()
                 callback.close()
-                will_delete.append((host, url, callback, s, key))
-                continue
+                will_delete = (host, url, callback, s, key)
+                break
             go = callback.send(b)
             assert go is not None
             if not go:
@@ -63,8 +63,11 @@ class Coroutine(object):
                 s.close()
                 callback.close()
                 self.done.append((host, url))
-                will_delete.append((host, url, callback, s, key))
-        self.from_del(will_delete)
+                will_delete = (host, url, callback, s, key)
+                break
+        if will_delete is not None:
+            self.queue.remove(will_delete)
+            self.do_cycle()
     def send(self, host, url, callback):
         print('work on', host, url)
         self.append(host, url, callback)
@@ -82,7 +85,7 @@ def sender(f):
         return c
     return wrapper
 @sender
-def save_file(filename):
+def http(filename):
     def parse_header(raw_header):
         header_lines = raw_header.split("\r\n")
         code = int(header_lines[0].split(' ')[1])
@@ -94,6 +97,7 @@ def save_file(filename):
                 value = line[pos+1:].strip()
                 headers[key] = value
         return code, headers
+    ba = bytearray()
     with open(filename, 'wb') as f:
         raw = bytearray()
         i = 0
@@ -116,6 +120,7 @@ def save_file(filename):
                 if 'Content-Length' in headers:
                     l = f.write(left)
                     assert l == len(left)
+                    ba.extend(left)
                     CL = int(headers['Content-Length'])
                     print('Content-Length',CL)
                     length = CL - len(left)
@@ -123,10 +128,11 @@ def save_file(filename):
                         b = yield True
                         l = f.write(b)
                         assert l == len(b)
+                        ba.extend(b)
                         length -= len(b)
                         if length <= 0:
                             assert length == 0
-                            yield False
+                            yield ba
                 elif 'Transfer-Encoding' in headers:
                     TE = headers['Transfer-Encoding']
                     assert TE == 'chunked'
@@ -137,6 +143,7 @@ def save_file(filename):
                     left_bytes = left[pos+len(b"\r\n"):]
                     l = f.write(left_bytes)
                     assert l == len(left_bytes)
+                    ba.extend(left_bytes)
                     length -= len(left_bytes)
                     while True:
                         b = yield True
@@ -145,31 +152,106 @@ def save_file(filename):
                             b = b[0:len(b)-len(b"\r\n0\r\n\r\n")]
                             l = f.write(b)
                             assert l == len(b)
-                            yield False
+                            ba.extend(b)
+                            yield ba
                         l = f.write(b)
                         assert l == len(b)
+                        ba.extend(b)
                         length -= len(b)
                         if length <= 0:
                             print('length less than 0', length, b)
                             print('should start of digits',b[-length:])
 
+@sender
+def fetch_page(host, url, filename, after_fetch):
+    def request(host, url, s):
+        headers = [
+            "GET {} HTTP/1.1".format(url),
+            "Host: {}".format(host),
+            "Accept-Encoding: identity"
+        ]
+        print('send', headers)
+        headers_str = "\r\n".join(headers)+"\r\n\r\n"
+        s.sendall(headers_str.encode())
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    port = 80
+    print('connect', host, port)
+    connection = s.connect((host, port))
+    s.setblocking(False)
+    request(host, url, s)
+    handler = http(host+'.html')
+    chunk_size = 1024
+    while True:
+        try:
+            b = s.recv(chunk_size)
+        except socket.timeout as e:
+            print('socket.timeout')
+            yield True
+            continue
+        except socket.error as e:
+            err = e.args[0]
+            if err == errno.EAGAIN or err == errno.EWOULDBLOCK:
+                print('EAGAIN')
+                yield True
+                continue
+            else:
+                # a "real" error occurred
+                print(e)
+                raise e
+        assert b is not None
+        if len(b) == 0:
+            print('server close, delete')
+            s.close()
+            yield False
+        ba = handler.send(b)
+        assert ba is not None
+        if not isinstance(ba, bool):
+            after_fetch(ba)
+            yield False
+
+def make_after_fetch():
+    def after_fetch(ba):
+        pass
+    return after_fetch
+
+pool = []
+def cycle():
+    if len(pool) > 0:
+        will_delete = None
+        for i in pool:
+            if not next(i):
+                will_delete = i
+                break
+        if will_delete is not None:
+            pool.remove(will_delete)
+            cycle()
+def loop():
+    while len(pool) > 0:
+        cycle()
 if __name__ == '__main__':
-    c = Coroutine()
-    c.send('www.baidu.com', '/', save_file('baidu.html'))
-    c.send('www.zhihu.com', '/', save_file('zhihu.html'))
-    c.close()
+    a = fetch_page('www.baidu.com', '/', 'baidu.html', make_after_fetch())
+    b = fetch_page('www.zhihu.com', '/', 'zhihu.html', make_after_fetch())
+    pool = [a,b]
+    loop()
 
-def start(url):
-    c.send('www.zhihu.com', url)
-
+def fetch_zhihu_page(url, after_fetch):
+    pool.append(fetch_page('www.zhihu.com', url, 'zhihu.html', after_fetch))
 def fetch_people_page(conn, username, page = 1):
     url = "/people/{}/answers".format(username)
     url_page = "{}?page={:d}".format(url, page)
     print("\n{}\t".format(url_page), end='')
     sys.stdout.flush()
-    start(url_page)
-    code, content = yield
-    print(code)
+    timer.timer()
+    try:
+        conn.request("GET", url_page)
+    except socket.timeout as e:
+        print('wow! timeout')
+        raise e
+    response = conn.getresponse()
+    t = timer.timer()
+    avg = int(get_average(t, 'user page'))
+    code = response.status
+    print("[{}]\t{} ms\tAvg: {} ms".format(code, t, avg))
     if code == 404:
         slog("user username fetch fail, code code")
         dbhelper.update_user_by_name(username, {'fetch': dbhelper.FETCH_FAIL})
@@ -180,4 +262,5 @@ def fetch_people_page(conn, username, page = 1):
         dbhelper.update_user_by_name(username, {'fetch': dbhelper.FETCH_FAIL})
         print( "奇奇怪怪的返回码", code)
         return None
+    content = response.read()
     return content
