@@ -6,6 +6,7 @@ import zhihu
 import dbhelper
 import timer
 import fetch
+import coroutine
 
 count = dbhelper.getNotFetchedUserCount()
 print("there are", count, "user to fetch")
@@ -25,6 +26,6 @@ else:
             print('finish')
             break
         fetch_user(username)
-        fetch.cycle()
-fetch.loop()
+        coroutine.cycle()
+coroutine.loop()
 print('Complete')
