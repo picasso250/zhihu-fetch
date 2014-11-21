@@ -7,6 +7,7 @@ class Coroutine(object):
         super(Coroutine, self).__init__()
         self.queue = []
         self.chunk_size = 1024
+        self.done = []
         
     def from_del(self, will_delete):
         for w in will_delete:
@@ -61,6 +62,7 @@ class Coroutine(object):
                 print(host,url,'content end, delete', key)
                 s.close()
                 callback.close()
+                self.done.append((host, url))
                 will_delete.append((host, url, callback, s, key))
         self.from_del(will_delete)
     def send(self, host, url, callback):
@@ -150,8 +152,32 @@ def save_file(filename):
                         if length <= 0:
                             print('length less than 0', length, b)
                             print('should start of digits',b[-length:])
-                        
-c = Coroutine()
-c.send('www.baidu.com', '/', save_file('baidu.html'))
-c.send('www.zhihu.com', '/', save_file('zhihu.html'))
-c.close()
+
+if __name__ == '__main__':
+    c = Coroutine()
+    c.send('www.baidu.com', '/', save_file('baidu.html'))
+    c.send('www.zhihu.com', '/', save_file('zhihu.html'))
+    c.close()
+
+def start(url):
+    c.send('www.zhihu.com', url)
+
+def fetch_people_page(conn, username, page = 1):
+    url = "/people/{}/answers".format(username)
+    url_page = "{}?page={:d}".format(url, page)
+    print("\n{}\t".format(url_page), end='')
+    sys.stdout.flush()
+    start(url_page)
+    code, content = yield
+    print(code)
+    if code == 404:
+        slog("user username fetch fail, code code")
+        dbhelper.update_user_by_name(username, {'fetch': dbhelper.FETCH_FAIL})
+        print( "没有这个用户", username)
+        return None
+    if code != 200:
+        slog("user username fetch fail, code code")
+        dbhelper.update_user_by_name(username, {'fetch': dbhelper.FETCH_FAIL})
+        print( "奇奇怪怪的返回码", code)
+        return None
+    return content
