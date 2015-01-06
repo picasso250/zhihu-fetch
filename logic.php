@@ -67,7 +67,7 @@ function fetch_answer($username) {
         $num = get_page_num($content);
         if ($num > 1) {
             foreach (range(2, $num) as $i) {
-                echo "\nNo. $n fetch page $i\t";
+                echo "\n fetch page $i\t";
                 $url_page = "$url?page=$i";
                 timer();
                 list($code, $content) = uget($url_page);
@@ -215,7 +215,7 @@ function save_answer_to_db($base_url, $username, $answer_link_list) {
 function loadHTML($html)
 {
     $dom = new DOMDocument;
-    $dom->loadHTML($html);
+    @$dom->loadHTML($html);
     return $dom;
 }
 function get_average($n, $tag = 'default')
