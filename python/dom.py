@@ -156,6 +156,22 @@ def html2dom(content):
     doc = HtmlDoc(e, parser.decl)
     return doc
 
+def bytes2dom(b, ec = 'utf-8'):
+    with open('last.html', 'wb') as f:
+        f.write(b)
+    asci = b.decode(ec, 'ignore')
+    pos = asci.find('charset="')
+    if pos != -1:
+        asci = asci[pos+len('charset="'):]
+        end = asci.find('"')
+        ec = asci[:end]
+        print(ec)
+    parser = DomParser()
+    parser.init()
+    parser.feed(b.decode(ec))
+    e = parser.tb.close()
+    doc = HtmlDoc(e, parser.decl)
+    return doc
 # test
 if __name__ == '__main__':
     with open('last.html') as f:

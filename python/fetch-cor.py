@@ -6,7 +6,7 @@ import zhihu
 import dbhelper
 import timer
 import fetch
-import coroutine
+import asyncio
 
 count = dbhelper.getNotFetchedUserCount()
 print("there are", count, "user to fetch")

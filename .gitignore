@@ -4,3 +4,5 @@ a.html
 python/__pycache__/
 *.db
 python/last.html
+python/__pycache__/
+*.diff
