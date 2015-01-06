@@ -1,5 +1,9 @@
 <?php
 
+use model\User;
+use model\Question;
+use model\Answer;
+
 function save_answer($base_url, $username, $answer_link_list) {
     foreach ($answer_link_list as $url) {
         $url = $base_url.$url;
@@ -22,8 +26,72 @@ function save_answer($base_url, $username, $answer_link_list) {
     }
 }
 
+function fetch_answer($username) {
+    $base_url = 'http://www.zhihu.com';
+    try {
+        User::updateByUserName($username, array('fetch' => User::FETCH_ING));
+        $n++;
+        $url = "$base_url/people/$username/answers";
+        echo "\nfetch No.$n $username\t";
+        timer();
+        list($code, $content) = uget($url);
+        $t = timer();
+        $avg = intval(get_average($t, 'user page'));
+        echo "[$code]\t$t ms\tAvg: $avg ms\n";
+        slog("%s [%s] %s ms", $url, $code, $t);
+        if ($code == 404) {
+            slog("user $username fetch fail, code $code");
+            User::updateByUserName($username, array('fetch' => User::FETCH_FAIL));
+            echo "没有这个用户 $username\n";
+            continue;
+        }
+        if ($code != 200) {
+            slog("user $username fetch fail, code $code");
+            User::updateByUserName($username, array('fetch' => User::FETCH_FAIL));
+            echo "奇奇怪怪的返回码 $code\n";
+            continue;
+        }
+        
+        $dom = loadHTML($content);
+        $dom = $dom->getElementById('zh-pm-page-wrap');
+        foreach ($dom->getElementsByTagName('img') as $key => $node) {
+            if (($attr = $node->getAttribute('class')) == 'zm-profile-header-img zg-avatar-big zm-avatar-editor-preview') {
+                $src = ($node->getAttribute('src'));
+            }
+        }
+        
+        User::updateByUserName($username, array('avatar' => $src));
+
+        $link_list = get_answer_link_list($content);
+        $rs = Answer::saveAnswer($base_url, $username, $link_list);
+
+        $num = get_page_num($content);
+        if ($num > 1) {
+            foreach (range(2, $num) as $i) {
+                echo "\nNo. $n fetch page $i\t";
+                $url_page = "$url?page=$i";
+                timer();
+                list($code, $content) = uget($url_page);
+                $t = timer();
+                $avg = intval(get_average($t, 'user page'));
+                slog("%s [%s] %s ms", $url_page, $code, $t);
+                echo "[$code]\t$t ms\tAvg: $avg ms\n";
+                if ($code != 200) {
+                    echo "奇奇怪怪的返回码 $code\n";
+                    continue;
+                }
+                $link_list = get_answer_link_list($content);
+                Answer::saveAnswer($base_url, $username, $link_list);
+            }
+        }
+        User::updateByUserName($username, array('fetch' => User::FETCH_OK));
+    } catch (Exception $e) {
+        slog('warning: resume with '.$e->getCode().' '.$e->getMessage());
+    }
+}
+
 function parse_answer($content) {
-    $dom = HTML5::loadHTML($content);
+    $dom = loadHTML($content);
     $answer = $dom->getElementById('zh-question-answer-wrap');
     $answer = ($answer->C14N());
     $q = $dom->getElementById('zh-question-title');
@@ -33,7 +101,7 @@ function parse_answer($content) {
 }
 
 function parse_answer_pure($content) {
-    $dom = HTML5::loadHTML($content);
+    $dom = loadHTML($content);
     $answerdom = $dom->getElementById('zh-question-answer-wrap');
     if (empty($answerdom)) {
         slog('warinng: no #zh-question-answer-wrap');
@@ -65,7 +133,7 @@ function parse_answer_pure($content) {
 }
 
 function get_answer_link_list($content) {
-    $dom = HTML5::loadHTML($content);
+    $dom = loadHTML($content);
     $dom = $dom->getElementById('zh-profile-answer-list');
     $ret = array();
     if (empty($dom)) {
@@ -90,7 +158,7 @@ function get_page_num($content) {
 }
 
 function get_username_list($content) {
-    $dom = HTML5::loadHTML($content);
+    $dom = loadHTML($content);
     $ret = array();
     foreach ($dom->getElementsByTagName('a') as $key => $node) {
         $href = $node->getAttribute('href');
@@ -145,6 +213,12 @@ function save_answer_to_db($base_url, $username, $answer_link_list) {
     }
 }
 
+function loadHTML($html)
+{
+    $dom = new DOMDocument;
+    $dom->loadHTML($html);
+    return $dom;
+}
 function get_average($n, $tag = 'default')
 {
     static $data;

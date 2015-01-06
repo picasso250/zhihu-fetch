@@ -2,8 +2,8 @@
 
 return array(
     'db' => array(
-        'dsn' => 'mysql:dbname=zhihu;host=127.0.0.1',
-        'user' => 'root',
-        'password' => '',
+        'dsn' => getenv('dsn_db'),
+        'user' => getenv('user_db'),
+        'password' => getenv('password_db'),
     ),
 );
