@@ -30,9 +30,8 @@ function fetch_answer($username) {
     $base_url = 'http://www.zhihu.com';
     try {
         User::updateByUserName($username, array('fetch' => User::FETCH_ING));
-        $n++;
         $url = "$base_url/people/$username/answers";
-        echo "\nfetch No.$n $username\t";
+        echo "\nfetch $username\t";
         timer();
         list($code, $content) = uget($url);
         $t = timer();
