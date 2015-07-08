@@ -191,7 +191,7 @@ function timer($tag = 'default')
 function fetch_users_answers($username)
 {
     $url = "/people/$username/answers";
-    echo "fetch $username\n";
+    echo "fetch $username $url\n";
     list($code, $content) = zhihu_get($url);
     if ($code == 404) {
         echo "没有这个用户 $username\n";
@@ -216,17 +216,24 @@ function fetch_users_answers($username)
 }
 function proc_user_page($content, $username)
 {
-    $link_list = get_answer_link_list($content);
-    $answers = get_answer_list($link_list);
-    foreach ($answers as $url => $html) {
+    $dom = loadHTML($content);
+    $link_list = get_answer_link_list($dom);
+    $info = get_user_info($dom);
+    $answer_list = get_answer_list($link_list);
+    $answers = [];
+    foreach ($answer_list as $url => $a) {
+        list($question, $html) = $a;
+        if (!preg_match('#^/question/\d+#', $url, $matches)) {
+            throw new Exception("url not parse", 1);
+        }
+        save_question($matches[0], $question);
         save_answer($url, $html);
+        $answers[$url] = $question['title'];
     }
     $key = "/user/$username";
     $raw = get_file($key);
-    $user_answers = $raw ? unserialize($raw) : [];
-    $table = array_flip($user_answers);
-    $table = array_merge($table, $answers);
-    $user_answers = array_keys($table);
-    save_file($key, serialize($user_answers));
+    $user_answers = $raw ? unserialize($raw)['answers'] : [];
+    $info['answers'] = array_merge($user_answers, $answers);
+    save_file($key, serialize($info));
     return $num = get_page_num($content);
 }

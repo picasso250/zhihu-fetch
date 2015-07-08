@@ -1,5 +1,9 @@
 <?php
 
+function save_question($path, $info)
+{
+    save_file("${path}/info", serialize($info));
+}
 function save_answer($path, $html)
 {
     $file = __DIR__."/data$path";

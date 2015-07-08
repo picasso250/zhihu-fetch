@@ -1,3 +1,6 @@
 [submodule "xiaochi-db"]
 	path = xiaochi-db
 	url = https://github.com/picasso250/xiaochi-db.git
+[submodule "occam"]
+	path = occam
+	url = https://github.com/picasso250/occam.git
