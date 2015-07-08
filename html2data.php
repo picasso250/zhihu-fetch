@@ -49,12 +49,12 @@ function get_answer($url) {
     $xpath = new DOMXPath($doc);
     $query = '//*[@id="zh-question-title"]/h2/a';
     $entries = $xpath->query($query);
-    assert(count($entries) === 1);
+    assert($entries->length === 1);
     $title = $entries->item(0)->nodeValue;
     $xpath = new DOMXPath($doc);
     $query = '//*[@id="zh-question-detail"]/div';
     $entries = $xpath->query($query);
-    assert(count($entries) === 1);
+    assert($entries->length === 1);
     $detail = $entries->item(0)->nodeValue;
     return [compact('title', 'detail'), $content];
 }
@@ -62,17 +62,36 @@ function get_user_info($doc) {
     $xpath = new DOMXPath($doc);
 
     // We starts from the root element
-    $query = '//*[@id="zh-pm-page-wrap"]/div[1]/div[1]/div[1]/div[2]/a';
+    $query = '//*[@id="zh-pm-page-wrap"]/div[1]/div[1]/div[1]';//div[2]/a';
+    // $query = '//*[@id="zh-pm-page-wrap"]/div[1]/div[1]/div[1]/div/a';
     $entries = $xpath->query($query);
-    assert(count($entries) === 1);
-    $name = $entries->item(0)->nodeValue;
-
-    $xpath = new DOMXPath($doc);
-    $query = '//*[@id="zh-pm-page-wrap"]/div[1]/div[1]/div[1]/div[2]/span';
-    $entries = $xpath->query($query);
-    assert(count($entries) === 1);
-    $desc = $entries->item(0)->nodeValue;
+    if ($entries->length !== 1) {
+        throw new Exception("not find user name", 1);
+    }
+    $div_top = $entries->item(0);
+    $length = $div_top->childNodes->length;
+    assert($length === 3 || $length === 5);
+    $divs = filter_by_class($div_top->childNodes, 'title-section ellipsis');
+    assert(count($divs) === 1);
+    $list = filter_by_class($divs[0]->childNodes, 'name');
+    assert(count($list) === 1);
+    $name = $list[0]->nodeValue;
+    $list = filter_by_class($divs[0]->childNodes, 'bio');
+    $desc = '';
+    if ($list) {
+        $desc = $list[0]->nodeValue;
+    }
     return compact('name', 'desc');
+}
+function filter_by_class($list, $class)
+{
+    $ret = [];
+    foreach ($list as $elem) {
+        if ($elem instanceof DOMElement && $elem->getAttribute('class') === $class) {
+            $ret[] = $elem;
+        }
+    }
+    return $ret;
 }
 
 function xpath_query($doc, $query)

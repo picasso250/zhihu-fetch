@@ -217,6 +217,7 @@ function fetch_users_answers($username)
 function proc_user_page($content, $username)
 {
     $dom = loadHTML($content);
+    file_put_contents('user', $content);
     $link_list = get_answer_link_list($dom);
     $info = get_user_info($dom);
     $answer_list = get_answer_list($link_list);
