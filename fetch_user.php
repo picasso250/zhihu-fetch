@@ -23,6 +23,7 @@ echo "there are ",count($ids)," questions to fetch\n";
 $sum = $existing_sum = 1;
 foreach ($ids as $qid) {
     $url = "$base_url/question/$qid";
+    echo $url,"\n";
     timer();
     list($code, $content) = odie_get($url);
     slog($url." [$code]");
