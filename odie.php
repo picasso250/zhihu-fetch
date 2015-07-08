@@ -25,3 +25,9 @@ function odie_get($url, $opts = null) {
     }
     return array($code, $content);
 }
+function zhihu_get($url)
+{
+    $base_url = 'http://www.zhihu.com';
+    $url = "$base_url$url";
+    return odie_get($url);
+}

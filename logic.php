@@ -4,28 +4,6 @@ use model\User;
 use model\Question;
 use model\Answer;
 
-function save_answer($base_url, $username, $answer_link_list) {
-    foreach ($answer_link_list as $url) {
-        $url = $base_url.$url;
-        list($_, $content) = odie_get($url);
-        list($question, $content) = parse_answer($content);
-        echo "\t$question\n";
-        $content = '<link rel="stylesheet" href="http://static.zhihu.com/static/ver/f004e446ca569e4897e59cf26da3e2dc.z.css" type="text/css" media="screen,print" />'
-            .$content
-            .'<div><a href="'.$url.'">原链接</a></div>'
-            .'<script src="http://code.jquery.com/jquery-1.11.0.min.js"></script>'
-            .'<script>$("img").each(function(){$(this).attr("src",$(this).attr("data-actualsrc"))});</script>'
-            ;
-        $root = __DIR__."/$username";
-        if (!is_dir($root)) {
-            mkdir($root);
-        }
-        $question = mb_strimwidth($question, 0, 40, '...', 'utf8');
-        $question = str_replace('/', '-', $question);
-        file_put_contents("$root/$question.html", $content);
-    }
-}
-
 function fetch_answer($username) {
     $base_url = 'http://www.zhihu.com';
     try {
@@ -89,16 +67,6 @@ function fetch_answer($username) {
     }
 }
 
-function parse_answer($content) {
-    $dom = loadHTML($content);
-    $answer = $dom->getElementById('zh-question-answer-wrap');
-    $answer = ($answer->C14N());
-    $q = $dom->getElementById('zh-question-title');
-    $a = $q->getElementsByTagName('a')->item(0);
-    $question = $a->textContent;
-    return array($question, $answer);
-}
-
 function parse_answer_pure($content) {
     $dom = loadHTML($content);
     $answerdom = $dom->getElementById('zh-question-answer-wrap');
@@ -129,31 +97,6 @@ function parse_answer_pure($content) {
     $descript = $descript->getElementsByTagName('div')->item(0)->C14N();
     
     return array($question, $descript, $answer, $vote);
-}
-
-function get_answer_link_list($content) {
-    $dom = loadHTML($content);
-    $dom = $dom->getElementById('zh-profile-answer-list');
-    $ret = array();
-    if (empty($dom)) {
-        echo "empty #zh-profile-answer-list\n";
-        slog('empty #zh-profile-answer-list');
-        return $ret;
-    }
-    foreach ($dom->getElementsByTagName('a') as $key => $node) {
-        if ($attr = $node->getAttribute('class') == 'question_link') {
-            $ret[] = ($node->getAttribute('href'));
-        }
-    }
-    return $ret;
-}
-
-function get_page_num($content) {
-    $rs = preg_match_all('%<a href="\?page=(\d+)%', $content, $matches);
-    if (!$rs) {
-        return 1;
-    }
-    return (int) max($matches[1]);
 }
 
 function get_username_list($content) {
@@ -212,12 +155,6 @@ function save_answer_to_db($base_url, $username, $answer_link_list) {
     }
 }
 
-function loadHTML($html)
-{
-    $dom = new DOMDocument;
-    @$dom->loadHTML($html);
-    return $dom;
-}
 function get_average($n, $tag = 'default')
 {
     static $data;
@@ -247,4 +184,42 @@ function timer($tag = 'default')
         $data[$tag] = $t;
         return intval($d*1000);
     }
+}
+/**
+ * @return array of answer
+ */
+function fetch_users_answers($username)
+{
+    $url = "/people/$username/answers";
+    echo "fetch $username\n";
+    list($code, $content) = zhihu_get($url);
+    if ($code == 404) {
+        echo "没有这个用户 $username\n";
+        exit(1);
+    }
+    if ($code !== 200) {
+        throw new Exception("code $code", 1);
+    }
+
+    $num = proc_user_page($content);
+    if ($num > 1) {
+        foreach (range(2, $num) as $i) {
+            echo "fetch page $i\n";
+            $url_page = "$url?page=$i";
+            list($code, $content) = zhihu_get($url_page);
+            if ($code !== 200) {
+                throw new Exception("$url_page => $code", 1);
+            }
+            $num = proc_user_page($content);
+        }
+    }
+}
+function proc_user_page($content)
+{
+    $link_list = get_answer_link_list($content);
+    $answers = get_answer_list($link_list);
+    foreach ($answers as $url => $html) {
+        save_answer($url, $html);
+    }
+    return $num = get_page_num($content);
 }
