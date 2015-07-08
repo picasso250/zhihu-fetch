@@ -27,15 +27,20 @@ function parse_user_answer($content)
     return array(get_answer_link_list($content), get_page_num($content));
 }
 function get_answer_list($answer_link_list) {
+    $ret = [];
     foreach ($answer_link_list as $url) {
-        $ret[$url] = get_answer($url);
+        $a = get_answer($url);
+        if ($a) {
+            $ret[$url] = $a;
+        }
     }
     return $ret;
 }
 function get_answer($url) {
     list($code, $content) = zhihu_get($url);
     if ($code !== 200) {
-        throw new Exception("code $code", 1);
+        error_log("$url [$code]");
+        return false;
     }
-    return $code;
+    return $content;
 }

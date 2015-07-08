@@ -201,7 +201,7 @@ function fetch_users_answers($username)
         throw new Exception("code $code", 1);
     }
 
-    $num = proc_user_page($content);
+    $num = proc_user_page($content, $username);
     if ($num > 1) {
         foreach (range(2, $num) as $i) {
             echo "fetch page $i\n";
@@ -210,16 +210,23 @@ function fetch_users_answers($username)
             if ($code !== 200) {
                 throw new Exception("$url_page => $code", 1);
             }
-            $num = proc_user_page($content);
+            $num = proc_user_page($content, $username);
         }
     }
 }
-function proc_user_page($content)
+function proc_user_page($content, $username)
 {
     $link_list = get_answer_link_list($content);
     $answers = get_answer_list($link_list);
     foreach ($answers as $url => $html) {
         save_answer($url, $html);
     }
+    $key = "/user/$username";
+    $raw = get_file($key);
+    $user_answers = $raw ? unserialize($raw) : [];
+    $table = array_flip($user_answers);
+    $table = array_merge($table, $answers);
+    $user_answers = array_keys($table);
+    save_file($key, serialize($user_answers));
     return $num = get_page_num($content);
 }
