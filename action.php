@@ -34,3 +34,14 @@ function image()
     }
     readfile(__DIR__."/data/$file");
 }
+
+function save()
+{
+    if (empty($_POST['url'])) {
+        \Occam\echo_json(1, 'no url');
+        return;
+    }
+    $url = $_POST['url'];
+    $db->upsert('to_be', compact('url'));
+    \Occam\echo_json(compact('url'));
+}
