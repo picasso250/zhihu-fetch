@@ -12,7 +12,7 @@ $dbc = $config['db'];
 $db = new \Xiaochi\DB($dbc['dsn'], $dbc['username'], $dbc['password']);
 
 while (true) {
-    if ($rows = $db->queryAll("SELECT*from to_be where fetched=0")) {
+    if ($rows = $db->queryAll("SELECT*from task where fetched=0")) {
         foreach ($rows as $row) {
             $url = $row['url'];
             $path = parse_url($url, PHP_URL_PATH);
@@ -23,7 +23,7 @@ while (true) {
             } else {
                 error_log("$url do not ");
             }
-            $db->update('to_be', ['fetched' => 1], ['id' => $row['id']]);
+            $db->update('task', ['fetched' => 1], ['id' => $row['id']]);
         }
     } else {
         sleep(1);

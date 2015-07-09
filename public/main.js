@@ -20,10 +20,16 @@ $(function () {
 		$btn.button('loading');
 		$.post($this.attr('action'), $this.serialize(), function (ret) {
 			if (ret.code === 0) {
-				if (ret.data && ret.data.url) {
-					location.href = ret.data.url;
-					return;
-				}
+				var id = ret.data.id;
+				var check_task = function () {
+					$.get('/check_task/'+id, {}, function (ret) {
+						if (ret.code !== 0) {
+							setTimeout(check_task, 2000);
+						};
+						alert.text(ret.msg);
+					});
+				};
+				check_task();
 			}
 			$btn.button('reset');
 			alert.removeClass('alert-hidden').text(ret.msg);

@@ -40,8 +40,21 @@ function save()
     }
     global $db;
     $url = $_POST['url'];
-    $db->upsert('to_be', compact('url'));
-    \Occam\echo_json([], '正在努力获取答案');
+    $data = compact('url');
+    $db->upsert('task', $data);
+    $task = $db->get_task_by_url($url);
+    \Occam\echo_json($task, '正在努力获取答案');
+}
+
+function check_task($id)
+{
+    global $db;
+    $task = $db->get_task_by_id($id);
+    if ($task['fetched']) {
+        \Occam\echo_json(0, 'ok');
+    } else {
+        \Occam\echo_json(1, 'wating');
+    }
 }
 
 function page404()
