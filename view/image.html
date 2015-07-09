@@ -4,5 +4,13 @@
 			var original = $(this).data('original');
 			this.src = '/image?url=' + encodeURIComponent(original);
 		});
+		$('img[data-actualsrc]').each(function () {
+			var actualsrc = $(this).data('actualsrc');
+			this.src = '/image?url=' + encodeURIComponent(actualsrc);
+		});
+		$('img[data-source]').each(function () {
+			var source = $(this).data('source');
+			this.src = '/image?url=' + encodeURIComponent(source);
+		});
 	})
 </script>
