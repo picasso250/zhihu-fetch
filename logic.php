@@ -155,7 +155,7 @@ function fetch_users_answers($username)
         exit(1);
     }
     if ($code !== 200) {
-        throw new Exception("code $code", 1);
+        throw new Exception("$url [$code]", 1);
     }
 
     $num = proc_user_page($content, $username);
@@ -194,6 +194,7 @@ function proc_user_page($content, $username)
 function fetch_question_page($id)
 {
     $url = "/question/$id";
+    echo "$url\n";
     list($code, $content) = zhihu_get($url);
     if ($code == 404) {
         echo "no $url\n";

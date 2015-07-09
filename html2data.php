@@ -4,7 +4,6 @@ function get_answer_link_list($dom) {
     $ret = array();
     if (empty($dom)) {
         echo "empty #zh-profile-answer-list\n";
-        slog('empty #zh-profile-answer-list');
         return $ret;
     }
     foreach ($dom->getElementsByTagName('a') as $key => $node) {

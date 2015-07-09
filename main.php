@@ -1,45 +1,31 @@
 <?php
 
-//  dsn_db="mysql:dbname=zhihu;host=127.0.0.1" user_db="root" password_db="root" php main.php wang-xiao-chi
+require (__DIR__)."/xiaochi-db/autoload.php";
+require (__DIR__)."/odie.php";
+require (__DIR__)."/html2dom.php";
+require (__DIR__)."/html2data.php";
+require (__DIR__)."/data2db.php";
+require (__DIR__)."/logic.php";
 
-define('DEPLOY_MODE', getenv('DEPLOY_MODE') ?: 'DEV');
+$config = require './config.php';
+$dbc = $config['db'];
+$db = new \Xiaochi\DB($dbc['dsn'], $dbc['username'], $dbc['password']);
 
-error_reporting(E_ALL);
-ini_set('log_errors', 1); // 记录错误
-ini_set('error_log', __DIR__.'/php_error.log'); // 错误记录文件的位置
-
-ini_set('display_errors', 1);
-
-require_once __DIR__."/odie.php";
-require_once __DIR__."/logic.php";
-require_once __DIR__."/lib_mongodb.php";
-require_once __DIR__."/DB.php";
-require_once __DIR__."/adapter/Mysql.php";
-require_once __DIR__."/autoload.php";
-
-use adapter\Mysql;
-
-DB::setAdapter(new Mysql());
-
-if (count($argv) === 2) {
-    $username = $argv[1];
-    echo 'you say fetch ', $username, "\n";
-    fetch_answer($username);
+while (true) {
+    if ($rows = $db->queryAll("SELECT*from to_be where fetched=0")) {
+        foreach ($rows as $row) {
+            $url = $row['url'];
+            $path = parse_url($url, PHP_URL_PATH);
+            if (preg_match('#^/people/(.+)#', $path, $matches)) {
+                fetch_users_answers($matches[1]);
+            } elseif (preg_match('#^/question/(\d+)#', $path, $matches)) {
+                fetch_question_page($matches[1]);
+            } else {
+                error_log("$url do not ");
+            }
+            $db->update('to_be', ['fetched' => 1], ['id' => $row['id']]);
+        }
+    } else {
+        sleep(1);
+    }
 }
-include 'fetch_answer.php';
-include 'fetch_user.php';
-include 'fetch_answer.php';
-include 'fetch_user.php';
-include 'fetch_answer.php';
-include 'fetch_user.php';
-include 'fetch_answer.php';
-include 'fetch_user.php';
-include 'fetch_answer.php';
-include 'fetch_user.php';
-include 'fetch_answer.php';
-include 'fetch_user.php';
-include 'fetch_answer.php';
-include 'fetch_user.php';
-include 'fetch_answer.php';
-include 'fetch_user.php';
-include 'fetch_answer.php';
