@@ -41,7 +41,16 @@ function save()
         \Occam\echo_json(1, 'no url');
         return;
     }
+    global $db;
     $url = $_POST['url'];
     $db->upsert('to_be', compact('url'));
-    \Occam\echo_json(compact('url'));
+    \Occam\echo_json([], '正在努力获取答案');
+}
+
+function page404()
+{
+    $REQUEST_URI = $_SERVER['REQUEST_URI'];
+    $ch = curl_init("http://www.zhihu.com$REQUEST_URI");
+    curl_exec($ch);
+    curl_close($ch);
 }

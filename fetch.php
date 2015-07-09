@@ -11,4 +11,6 @@ $username = 'liuniandate';
 if (isset($argv[1])) {
     $username = $argv[1];
 }
-fetch_users_answers($username);
+// fetch_users_answers($username);
+$url = '/question/31847002';
+fetch_question_page($url);

@@ -238,3 +238,15 @@ function proc_user_page($content, $username)
     save_file($key, serialize($info));
     return $num = get_page_num($content);
 }
+function fetch_question_page($url)
+{
+    list($code, $content) = zhihu_get($url);
+    if ($code == 404) {
+        echo "没有 $url\n";
+        exit(1);
+    }
+    if ($code !== 200) {
+        throw new Exception("code $code", 1);
+    }
+    save_file("$url/page", $content);
+}

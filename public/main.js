@@ -12,7 +12,7 @@ $(function () {
 			$button.text($button.data('old'));
 		}
 	}})
-	var postForm = $('form[method="post"][ajax]').on('submit', function (e) {
+	var postForm = $('form[ajax]').on('submit', function (e) {
 		e.preventDefault();
 		var $this = $(this);
 		var alert = $this.find('.return-msg');
@@ -26,7 +26,7 @@ $(function () {
 				}
 			}
 			$btn.button('reset');
-			alert.removeClass('alert-hidden').text(ret.message);
+			alert.removeClass('alert-hidden').text(ret.msg);
 		}, 'json');
 	});
 });

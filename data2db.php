@@ -32,7 +32,6 @@ function save_file($path, $html)
     $file = __DIR__."/data$path";
     $dir = dirname($file);
     if (!is_dir($dir)) {
-        var_dump($dir);
         mkdir($dir, 0777, true);
     }
     file_put_contents($file, $html);

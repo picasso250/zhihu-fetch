@@ -9,3 +9,4 @@ python/__pycache__/
 data
 user
 config.php
+public/jquery-2.0.3.min.js
