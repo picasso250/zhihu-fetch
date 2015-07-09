@@ -1,0 +1,8 @@
+<script type="text/javascript">
+	$(function () {
+		$('img[data-original]').each(function () {
+			var original = $(this).data('original');
+			this.src = '/image?url=' + encodeURIComponent(original);
+		});
+	})
+</script>
