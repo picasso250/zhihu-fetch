@@ -112,49 +112,6 @@ function get_username_list($content) {
     return ($ret);
 }
 
-function save_answer_to_db($base_url, $username, $answer_link_list) {
-    global $pdo;
-    foreach ($answer_link_list as $url) {
-        echo "\t{$base_url}$url";
-        if (preg_match('%^/question/(\d+)/answer/(\d+)%', $url, $matches)) {
-            $qid = $matches[1];
-            $aid = $matches[2];
-        } else {
-            echo "$url not good\n";
-            exit(1);
-        }
-        $url = $base_url.$url;
-        list($code, $content) = odie_get($url);
-        echo "\t$code\n";
-        // 自动重刷
-        $i = 0;
-        while ($code != 200) {
-            list($code, $content) = odie_get($url);
-            echo "\t$code\n";
-            if ($i > 5) {
-                echo 'can not fetch',"\n";
-                return false;
-            }
-            $i++;
-        }
-        if (empty($content)) {
-            echo "content is empty\n";
-            return false;
-        }
-        list($question, $descript, $content, $vote) = parse_answer_pure($content);
-        echo "\t^$vote\t$question\n";
-        $stmt = $pdo->prepare('INSERT INTO question (id, title, description) VALUES (?,?,?) ON DUPLICATE KEY UPDATE title=?,description=?');
-        if (!$stmt->execute(array($qid, $question, $descript, $question, $descript))) {
-            print_r($stmt->errorInfo());
-        }
-
-        $stmt = $pdo->prepare('INSERT INTO answer (id, q_id, user, text, vote) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE text=?, vote=?');
-        if (!$stmt->execute(array($aid, $qid, $username, $content, $vote, $content, $vote))) {
-            print_r($stmt->errorInfo());
-        }
-    }
-}
-
 function get_average($n, $tag = 'default')
 {
     static $data;
@@ -220,33 +177,33 @@ function proc_user_page($content, $username)
     file_put_contents('user', $content);
     $link_list = get_answer_link_list($dom);
     $info = get_user_info($dom);
-    $answer_list = get_answer_list($link_list);
     $answers = [];
-    foreach ($answer_list as $url => $a) {
-        list($question, $html) = $a;
-        if (!preg_match('#^/question/\d+#', $url, $matches)) {
+    foreach ($link_list as $url => $title) {
+        if (!preg_match('#^/question/(\d+)/answer/(\d+)$#', $url, $matches)) {
             throw new Exception("url not parse", 1);
         }
-        save_question($matches[0], $question);
-        save_answer($url, $html);
-        $answers[$url] = $question['title'];
+        $qid = $matches[1];
+        $aid = $matches[2];
+        fetch_question_page("$qid");
+        save_answer_to_db(['qid' => $qid, 'id' => $aid, 'username' => $username]);
     }
     $key = "/user/$username";
-    $raw = get_file($key);
-    $user_answers = $raw ? unserialize($raw)['answers'] : [];
-    $info['answers'] = array_merge($user_answers, $answers);
     save_file($key, serialize($info));
     return $num = get_page_num($content);
 }
-function fetch_question_page($url)
+function fetch_question_page($id)
 {
+    $url = "/question/$id";
     list($code, $content) = zhihu_get($url);
     if ($code == 404) {
-        echo "没有 $url\n";
+        echo "no $url\n";
         exit(1);
     }
     if ($code !== 200) {
-        throw new Exception("code $code", 1);
+        error_log("$url [$code]");
+        return false;
     }
-    save_file("$url/page", $content);
+    save_file($url, $content);
+    save_question($id, get_question_info($content));
+    return $content;
 }

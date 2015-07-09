@@ -4,15 +4,12 @@ namespace Action;
 
 function index()
 {
-    $users = [];
-    foreach (glob(__DIR__.'/data/user/*') as $file) {
-        $username = basename($file);
-        $users[$username] = unserialize(file_get_contents($file));
-    }
-    \Occam\render(compact('users'));
+    global $db;
+    $questions = $db->all_question();
+    \Occam\render(compact('questions'));
 }
 
-function answer()
+function view()
 {
     if (empty($_GET['url'])) {
         die("no url");

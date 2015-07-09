@@ -9,7 +9,7 @@ function get_answer_link_list($dom) {
     }
     foreach ($dom->getElementsByTagName('a') as $key => $node) {
         if ($attr = $node->getAttribute('class') == 'question_link') {
-            $ret[] = ($node->getAttribute('href'));
+            $ret[$node->getAttribute('href')] = $node->nodeValue;
         }
     }
     return $ret;
@@ -24,16 +24,6 @@ function get_page_num($content) {
 function parse_user_answer($content)
 {
     return array(get_answer_link_list($content), get_page_num($content));
-}
-function get_answer_list($answer_link_list) {
-    $ret = [];
-    foreach ($answer_link_list as $url) {
-        $a = get_answer($url);
-        if ($a) {
-            $ret[$url] = $a;
-        }
-    }
-    return $ret;
 }
 
 /**
@@ -99,4 +89,18 @@ function xpath_query($doc, $query)
     $xpath = new DOMXPath($doc);
     // We starts from the root element
     return $entries = $xpath->query($query);
+}
+function get_question_info($content)
+{
+    $doc = loadHTML($content);
+    $xpath = new DOMXPath($doc);
+    $query = '//*[@id="zh-question-title"]/h2/text()';
+    $entries = $xpath->query($query);
+    assert($entries->length === 1);
+    return ['title' => trim($entries->item(0)->nodeValue)];
+}
+
+function save_answer_to_db($info) {
+    global $db;
+    $db->upsert('answer', $info);
 }

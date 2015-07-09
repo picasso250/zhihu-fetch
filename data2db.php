@@ -1,8 +1,10 @@
 <?php
 
-function save_question($path, $info)
+function save_question($id, $info)
 {
-    save_file("${path}/info", serialize($info));
+    global $db;
+    $info['id'] = $id;
+    $db->upsert('question', $info);
 }
 function save_answer($path, $html)
 {
