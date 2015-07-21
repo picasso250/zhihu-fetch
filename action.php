@@ -5,7 +5,7 @@ namespace Action;
 function index()
 {
     global $db;
-    $questions = $db->all_question();
+    $questions = $db->queryAll("SELECT * from question order by is404 desc");
     \Occam\render(compact('questions'));
 }
 
@@ -60,7 +60,5 @@ function check_task($id)
 function page404()
 {
     $REQUEST_URI = $_SERVER['REQUEST_URI'];
-    $ch = curl_init("http://www.zhihu.com$REQUEST_URI");
-    curl_exec($ch);
-    curl_close($ch);
+    header("Location:http://www.zhihu.com$REQUEST_URI");
 }

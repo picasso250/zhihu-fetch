@@ -11,6 +11,9 @@
 	<?php foreach ($questions as $q): ?>
 		<li>
 			<a href="view?<?= http_build_query(['url' => "/question/$q[id]"]) ?>"><?= htmlspecialchars($q['title']) ?></a>
+			<?php if ($q['is404']): ?>
+				<span>[404]</span>
+			<?php endif ?>
 		</li>
 	<?php endforeach ?>
 </ul>

@@ -205,6 +205,11 @@ function fetch_question_page($id)
         return false;
     }
     save_file($url, $content);
-    save_question($id, get_question_info($content));
+    save_question($id, get_question_info($content, $url));
     return $content;
+}
+function get_live_questions()
+{
+    global $db;
+    return $db->queryAll("SELECT*from question where is404=0");
 }

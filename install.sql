@@ -25,3 +25,7 @@ CREATE TABLE `answer` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `idx_qu` (`qid`,`username`)
 ) ENGINE=InnoDB  DEFAULT CHARSET=utf8;
+ALTER TABLE `zhihu`.`question` 
+CHANGE COLUMN `follow_count` `is_404` TINYINT UNSIGNED NOT NULL ;
+ALTER TABLE `zhihu`.`question` 
+CHANGE COLUMN `is_404` `is404` TINYINT(3) UNSIGNED NOT NULL ;
